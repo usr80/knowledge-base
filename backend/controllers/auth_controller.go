@@ -36,7 +36,13 @@ func (c *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userService.Register(req.Username, req.Email, req.Password)
+	// 空字符串转为 nil，避免唯一索引冲突
+	var email *string
+	if req.Email != "" {
+		email = &req.Email
+	}
+
+	user, err := c.userService.Register(req.Username, email, req.Password)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

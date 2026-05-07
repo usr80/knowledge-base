@@ -17,14 +17,14 @@ func NewUserService() *UserService {
 	return &UserService{}
 }
 
-func (s *UserService) Register(username, email, password string) (*models.User, error) {
+func (s *UserService) Register(username string, email *string, password string) (*models.User, error) {
 	// 检查用户名是否存在
 	var existUser models.User
 	if err := config.DB.Where("username = ?", username).First(&existUser).Error; err == nil {
 		return nil, errors.New("用户名已存在")
 	}
-	if email != "" {
-		if err := config.DB.Where("email = ?", email).First(&existUser).Error; err == nil {
+	if email != nil && *email != "" {
+		if err := config.DB.Where("email = ?", *email).First(&existUser).Error; err == nil {
 			return nil, errors.New("邮箱已被使用")
 		}
 	}

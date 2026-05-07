@@ -89,7 +89,7 @@
 
     <!-- 主内容 -->
     <v-main>
-      <v-container fluid class="pa-6" style="max-width: 1400px; margin: 0 auto;">
+      <v-container fluid class="pa-6" style="max-width: 1400px; margin: 0 auto; min-height: calc(100vh - 64px);">
         <router-view />
       </v-container>
     </v-main>

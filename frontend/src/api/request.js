@@ -4,8 +4,11 @@
 import axios from 'axios'
 import { useUserStore } from '@/stores/user'
 
+// 开发模式用 /api（Vite 代理），生产模式用相对路径
+const baseURL = import.meta.env.DEV ? '/api' : './api'
+
 const request = axios.create({
-  baseURL: '/api',
+  baseURL,
   timeout: 10000
 })
 
@@ -31,7 +34,7 @@ request.interceptors.response.use(
         const userStore = useUserStore()
         userStore.logout()
         showSnackbar('登录已过期，请重新登录', 'error')
-        window.location.href = '/login'
+        window.location.href = './login'
       } else {
         showSnackbar(data.error || '请求失败', 'error')
       }

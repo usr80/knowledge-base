@@ -19,11 +19,11 @@ services:
       - "${PORT:-8080}:8080"
     volumes:
       # 挂载编译好的二进制文件
-      - ./backend/knowledge-base:/app/knowledge-base:ro
+      - ./build/backend/knowledge-base:/app/knowledge-base:ro
       # 挂载前端静态资源
-      - ./frontend/dist:/app/static:ro
+      - ./build/frontend/dist:/app/static:ro
       # 挂载配置文件
-      - ./backend/.env:/app/.env:ro
+      - ./build/backend/.env:/app/.env:ro
     working_dir: /app
     environment:
       - STATIC_DIR=/app/static

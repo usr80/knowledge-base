@@ -15,7 +15,7 @@ const routes = [
     path: '/',
     name: 'Layout',
     component: () => import('@/views/Layout.vue'),
-    redirect: '/documents',
+    redirect: { name: 'Documents' },
     children: [
       {
         path: 'documents',
@@ -53,16 +53,17 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
+  const isAuthPage = to.name === 'Login' || to.name === 'Register'
 
-  if (to.path !== '/login' && to.path !== '/register') {
+  if (!isAuthPage) {
     if (!token) {
-      next('/login')
+      next({ name: 'Login' })
     } else {
       next()
     }
   } else {
     if (token) {
-      next('/')
+      next({ name: 'Documents' })
     } else {
       next()
     }

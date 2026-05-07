@@ -3,6 +3,7 @@
  */
 import axios from 'axios'
 import { useUserStore } from '@/stores/user'
+import router from '@/router'
 
 // 开发模式用 /api（Vite 代理），生产模式用相对路径
 const baseURL = import.meta.env.DEV ? '/api' : './api'
@@ -34,7 +35,7 @@ request.interceptors.response.use(
         const userStore = useUserStore()
         userStore.logout()
         showSnackbar('登录已过期，请重新登录', 'error')
-        window.location.href = './login'
+        router.push({ name: 'Login' })
       } else {
         showSnackbar(data.error || '请求失败', 'error')
       }

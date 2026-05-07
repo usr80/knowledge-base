@@ -32,9 +32,13 @@
           class="mr-2"
           @update:modelValue="handleSearch"
         />
-        <v-btn color="primary" prepend-icon="mdi-plus" to="/document/edit" rounded="lg">
+        <v-btn color="primary" prepend-icon="mdi-plus" to="/document/edit" rounded="lg" class="mr-2">
           新建
         </v-btn>
+        <v-btn variant="outlined" prepend-icon="mdi-upload" rounded="lg" @click="triggerImport">
+          导入
+        </v-btn>
+        <input ref="fileInput" type="file" accept=".md" style="display: none" @change="handleImport" />
       </v-card-title>
 
       <v-divider class="my-2" />
@@ -115,7 +119,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getDocuments, getCategories, deleteDocument } from '@/api'
+import { getDocuments, getCategories, deleteDocument, importDocument } from '@/api'
 import { showSnackbar } from '@/api/request'
 
 const loading = ref(false)
@@ -129,6 +133,7 @@ const total = ref(0)
 
 const deleteDialog = ref(false)
 const deleteTarget = ref(null)
+const fileInput = ref(null)
 
 const headers = [
   { title: '标题', key: 'title', minWidth: 200 },
@@ -187,6 +192,33 @@ const confirmDelete = async () => {
     loadDocuments()
   } catch (error) {
     // handled
+  }
+}
+
+const triggerImport = () => {
+  fileInput.value?.click()
+}
+
+const handleImport = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  
+  if (!file.name.endsWith('.md')) {
+    showSnackbar('只支持 .md 格式文件', 'error')
+    return
+  }
+
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    await importDocument(formData)
+    showSnackbar('导入成功')
+    loadDocuments()
+  } catch (error) {
+    showSnackbar('导入失败', 'error')
+  } finally {
+    // 清空 input，允许重复选择同一文件
+    e.target.value = ''
   }
 }
 

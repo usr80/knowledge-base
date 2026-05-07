@@ -7,9 +7,24 @@
           <v-icon>mdi-arrow-left</v-icon>
         </v-btn>
         <h2 class="text-h6 font-weight-bold flex-grow-1">{{ document.title }}</h2>
-        <v-btn color="primary" prepend-icon="mdi-pencil" :to="`/document/edit/${route.params.id}`" rounded="lg">
+        <v-btn color="primary" prepend-icon="mdi-pencil" :to="`/document/edit/${route.params.id}`" rounded="lg" class="mr-2">
           编辑
         </v-btn>
+        <v-menu>
+          <template v-slot:activator="{ props }">
+            <v-btn variant="outlined" prepend-icon="mdi-download" v-bind="props" rounded="lg">
+              导出
+            </v-btn>
+          </template>
+          <v-list>
+            <v-list-item @click="handleExportMarkdown">
+              <v-list-item-title>导出 Markdown</v-list-item-title>
+            </v-list-item>
+            <v-list-item @click="handleExportPDF">
+              <v-list-item-title>导出 PDF</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
       </v-card-title>
 
       <v-divider />
@@ -50,7 +65,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getDocument } from '@/api'
+import { getDocument, exportMarkdown } from '@/api'
+import { showSnackbar } from '@/api/request'
 
 const route = useRoute()
 const loading = ref(false)
@@ -85,6 +101,41 @@ const loadDocument = async () => {
     document.value = res.data
   } finally {
     loading.value = false
+  }
+}
+
+const handleExportMarkdown = async () => {
+  try {
+    const res = await exportMarkdown(route.params.id)
+    const blob = new Blob([res], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${document.value.title || 'document'}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+    showSnackbar('导出成功')
+  } catch (error) {
+    showSnackbar('导出失败', 'error')
+  }
+}
+
+const handleExportPDF = async () => {
+  try {
+    const html2pdf = (await import('html2pdf.js')).default
+    const content = document.querySelector('.doc-content')
+    if (!content) return
+
+    html2pdf().set({
+      margin: [15, 15, 15, 15],
+      filename: `${document.value.title || 'document'}.pdf`,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(content).save()
+    showSnackbar('导出成功')
+  } catch (error) {
+    showSnackbar('导出失败，请重试', 'error')
   }
 }
 

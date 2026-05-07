@@ -40,6 +40,16 @@ export function deleteDocument(id) {
   return request.delete(`/documents/${id}`)
 }
 
+export function importDocument(formData) {
+  return request.post('/documents/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export function exportMarkdown(id) {
+  return request.get(`/documents/${id}/export/markdown`, { responseType: 'blob' })
+}
+
 export function getCategories() {
   return request.get('/categories')
 }

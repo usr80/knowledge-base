@@ -37,6 +37,8 @@ func SetupRoutes(r *gin.Engine) {
 		protected.GET("/documents/:id", documentController.GetByID)
 		protected.PUT("/documents/:id", documentController.Update)
 		protected.DELETE("/documents/:id", documentController.Delete)
+		protected.POST("/documents/import", documentController.Import)
+		protected.GET("/documents/:id/export/markdown", documentController.ExportMarkdown)
 
 		// 分类
 		protected.POST("/categories", categoryController.Create)

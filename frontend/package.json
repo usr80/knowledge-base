@@ -15,7 +15,8 @@
     "axios": "^1.6.5",
     "vuetify": "^3.5.0",
     "@mdi/font": "^7.4.47",
-    "webfontloader": "^1.6.28"
+    "webfontloader": "^1.6.28",
+    "html2pdf.js": "^0.10.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.3",

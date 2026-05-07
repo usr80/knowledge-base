@@ -6,7 +6,7 @@
         <v-btn icon variant="text" @click="$router.back()" class="mr-2">
           <v-icon>mdi-arrow-left</v-icon>
         </v-btn>
-        <h2 class="text-h6 font-weight-bold flex-grow-1">{{ document.title }}</h2>
+        <h2 class="text-h6 font-weight-bold flex-grow-1">{{ currentDoc.title }}</h2>
         <v-btn color="primary" prepend-icon="mdi-pencil" :to="`/document/edit/${route.params.id}`" rounded="lg" class="mr-2">
           编辑
         </v-btn>
@@ -32,12 +32,12 @@
       <v-card-text class="pa-6">
         <!-- 元信息 -->
         <div class="d-flex align-center mb-6">
-          <v-chip v-if="document.category" size="small" color="primary" variant="tonal" prepend-icon="mdi-folder">
-            {{ document.category.name }}
+          <v-chip v-if="currentDoc.category" size="small" color="primary" variant="tonal" prepend-icon="mdi-folder">
+            {{ currentDoc.category.name }}
           </v-chip>
           <span v-else class="text-grey text-body-2 mr-3">未分类</span>
           <v-chip
-            v-for="tag in document.tags"
+            v-for="tag in currentDoc.tags"
             :key="tag.id"
             size="small"
             color="info"
@@ -49,7 +49,7 @@
           <v-spacer />
           <span class="text-body-2 text-grey">
             <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
-            更新于 {{ formatDate(document.updatedAt) }}
+            更新于 {{ formatDate(currentDoc.updatedAt) }}
           </span>
         </div>
 
@@ -70,10 +70,10 @@ import { showSnackbar } from '@/api/request'
 
 const route = useRoute()
 const loading = ref(false)
-const document = ref({})
+const currentDoc = ref({})
 
 const renderedContent = computed(() => {
-  const content = document.value.content || ''
+  const content = currentDoc.value.content || ''
   return content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -98,7 +98,7 @@ const loadDocument = async () => {
   loading.value = true
   try {
     const res = await getDocument(route.params.id)
-    document.value = res.data
+    currentDoc.value = res.data
   } finally {
     loading.value = false
   }
@@ -111,7 +111,7 @@ const handleExportMarkdown = async () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${document.value.title || 'document'}.md`
+    a.download = `${currentDoc.value.title || 'document'}.md`
     a.click()
     URL.revokeObjectURL(url)
     showSnackbar('导出成功')
@@ -128,7 +128,7 @@ const handleExportPDF = async () => {
 
     html2pdf().set({
       margin: [15, 15, 15, 15],
-      filename: `${document.value.title || 'document'}.pdf`,
+      filename: `${currentDoc.value.title || 'document'}.pdf`,
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }

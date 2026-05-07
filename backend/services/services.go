@@ -111,7 +111,11 @@ func (s *UserService) ChangePassword(id uint, oldPassword, newPassword string) e
 		return errors.New("原密码错误")
 	}
 
-	return user.SetPassword(newPassword)
+	if err := user.SetPassword(newPassword); err != nil {
+		return err
+	}
+
+	return config.DB.Model(&user).Update("password", user.Password).Error
 }
 
 type DocumentService struct{}

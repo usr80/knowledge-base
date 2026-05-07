@@ -15,7 +15,9 @@ build/
 .env
 .env.local
 .env.*.local
-*.env
+.env.dev
+.env.test
+.env.prod
 
 # IDE
 .idea/

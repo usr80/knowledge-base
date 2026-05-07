@@ -1,0 +1,26 @@
+{
+  "name": "knowledge-base-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5",
+    "pinia": "^2.1.7",
+    "axios": "^1.6.5",
+    "vuetify": "^3.5.0",
+    "@mdi/font": "^7.4.47",
+    "webfontloader": "^1.6.28"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.3",
+    "vite": "^5.0.12",
+    "vite-plugin-vuetify": "^2.0.1",
+    "sass": "^1.70.0"
+  }
+}

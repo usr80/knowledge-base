@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Environment files (含敏感信息)
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Go
+*.test
+*.out
+go.work
+
+# Frontend
+.vite/
+.cache/
+
+# Database (不要提交数据库文件)
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files (用户上传的内容)
+uploads/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

@@ -29,9 +29,9 @@
 - [x] 个人中心（资料修改、密码修改）
 - [x] Material Design UI
 
-### 第二阶段（规划中）
+### 第二阶段（进行中）
 - [ ] AI 智能问答（RAG 架构）
-- [ ] 文档导入/导出（Markdown/PDF）
+- [x] 文档导入/导出（Markdown/PDF）
 - [ ] 全文搜索引擎（Elasticsearch）
 - [ ] 文档版本历史
 - [ ] 协作分享功能
@@ -54,8 +54,11 @@ go mod tidy
 # 复制配置文件
 cp .env.example .env
 
-# 编辑配置
-vim .env
+# 编辑配置（开发环境示例）
+vim .env.dev
+
+# 运行开发环境
+go run main.go -e dev
 
 # 运行
 go run main.go
@@ -212,6 +215,8 @@ knowledge-base/
 | POST | /api/documents | 创建文档 |
 | PUT | /api/documents/:id | 更新文档 |
 | DELETE | /api/documents/:id | 删除文档 |
+| POST | /api/documents/import | 导入 Markdown 文件 |
+| GET | /api/documents/:id/export/markdown | 导出 Markdown 文件 |
 
 ### 分类
 | 方法 | 路径 | 说明 |

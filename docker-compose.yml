@@ -1,0 +1,36 @@
+# 预编译部署 - docker-compose.yml
+# 使用：本地编译好二进制和前端后，直接运行
+#
+# 准备工作：
+#   1. 编译后端：cd backend && go build -o knowledge-base main.go
+#   2. 构建前端：cd frontend && npm run build
+#   3. 创建配置：cp backend/.env.example backend/.env（修改数据库密码等）
+#
+# 运行：docker-compose up -d
+
+version: '3.8'
+
+services:
+  knowledge-base:
+    image: centos:7
+    container_name: knowledge-base
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      # 挂载编译好的二进制文件
+      - ./backend/knowledge-base:/app/knowledge-base:ro
+      # 挂载前端静态资源
+      - ./frontend/dist:/app/static:ro
+      # 挂载配置文件
+      - ./backend/.env:/app/.env:ro
+    working_dir: /app
+    environment:
+      - STATIC_DIR=/app/static
+      - TZ=Asia/Shanghai
+    command: ["/app/knowledge-base"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

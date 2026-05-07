@@ -4,6 +4,7 @@ import vuetify from 'vite-plugin-vuetify'
 import { resolve } from 'path'
 
 export default defineConfig({
+  base: './', // 相对路径，支持子目录部署
   plugins: [
     vue(),
     vuetify({ autoImport: true })

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -38,44 +39,47 @@ type JWTConfig struct {
 
 // 全局配置实例
 var AppConfig *Config
+var loadOnce sync.Once
 
 // LoadConfig 加载配置（支持多种方式）
 // 优先级：命令行参数 > 环境变量 > .env 文件 > 默认值
 func LoadConfig() *Config {
-	// 1. 解析命令行参数
-	envFile := flag.String("env", ".env", "环境配置文件路径")
-	env := flag.String("e", "", "环境名称 (dev/test/prod)，自动加载 .env.{env}")
-	showConfig := flag.Bool("show-config", false, "显示当前配置（调试用）")
-	flag.Parse()
+	loadOnce.Do(func() {
+		// 1. 解析命令行参数
+		envFile := flag.String("env", ".env", "环境配置文件路径")
+		env := flag.String("e", "", "环境名称 (dev/test/prod)，自动加载 .env.{env}")
+		showConfig := flag.Bool("show-config", false, "显示当前配置（调试用）")
+		flag.Parse()
 
-	// 2. 加载 .env 文件
-	loadEnvFile(*envFile, *env)
+		// 2. 加载 .env 文件
+		loadEnvFile(*envFile, *env)
 
-	// 3. 构建配置
-	AppConfig = &Config{
-		Server: ServerConfig{
-			Port: getEnv("SERVER_PORT", "8080"),
-			Mode: getEnv("GIN_MODE", "debug"),
-		},
-		Database: DatabaseConfig{
-			Driver:   getEnv("DB_DRIVER", "mysql"),
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "3306"),
-			User:     getEnv("DB_USER", "root"),
-			Password: getEnv("DB_PASSWORD", ""),
-			DBName:   getEnv("DB_NAME", "knowledge_base"),
-			Charset:  getEnv("DB_CHARSET", "utf8mb4"),
-		},
-		JWT: JWTConfig{
-			Secret:     getEnv("JWT_SECRET", "change-this-secret-key"),
-			ExpireHour: 24 * 7,
-		},
-	}
+		// 3. 构建配置
+		AppConfig = &Config{
+			Server: ServerConfig{
+				Port: getEnv("SERVER_PORT", "8080"),
+				Mode: getEnv("GIN_MODE", "debug"),
+			},
+			Database: DatabaseConfig{
+				Driver:   getEnv("DB_DRIVER", "mysql"),
+				Host:     getEnv("DB_HOST", "localhost"),
+				Port:     getEnv("DB_PORT", "3306"),
+				User:     getEnv("DB_USER", "root"),
+				Password: getEnv("DB_PASSWORD", ""),
+				DBName:   getEnv("DB_NAME", "knowledge_base"),
+				Charset:  getEnv("DB_CHARSET", "utf8mb4"),
+			},
+			JWT: JWTConfig{
+				Secret:     getEnv("JWT_SECRET", "change-this-secret-key"),
+				ExpireHour: 24 * 7,
+			},
+		}
 
-	// 4. 调试模式下显示配置
-	if *showConfig {
-		printConfig()
-	}
+		// 4. 调试模式下显示配置
+		if *showConfig {
+			printConfig()
+		}
+	})
 
 	return AppConfig
 }

@@ -49,11 +49,12 @@ func (s *UserService) Register(username, email, password string) (*models.User, 
 func (s *UserService) Login(username, password string) (string, *models.User, error) {
 	var user models.User
 	if err := config.DB.Where("username = ? OR email = ?", username, username).First(&user).Error; err != nil {
-		return "", nil, errors.New("用户不存在")
+		// 安全考虑：不区分用户不存在和密码错误
+		return "", nil, errors.New("用户名或密码错误")
 	}
 
 	if !user.CheckPassword(password) {
-		return "", nil, errors.New("密码错误")
+		return "", nil, errors.New("用户名或密码错误")
 	}
 
 	if user.Status != 1 {

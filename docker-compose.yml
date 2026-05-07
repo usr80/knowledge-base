@@ -16,10 +16,10 @@ services:
     container_name: knowledge-base
     restart: unless-stopped
     ports:
-      - "${PORT:-8080}:8080"
+      - "3458:8080"
     volumes:
       # 挂载编译好的二进制文件
-      - ./build/backend/knowledge-base:/app/knowledge-base:ro
+      - ./build/backend/knowledge-base:/app/knowledge-base
       # 挂载前端静态资源
       - ./build/frontend/dist:/app/static:ro
       # 挂载配置文件
@@ -28,7 +28,7 @@ services:
     environment:
       - STATIC_DIR=/app/static
       - TZ=Asia/Shanghai
-    command: ["/app/knowledge-base"]
+    command: ["/bin/sh", "-c", "chmod +x /app/knowledge-base && /app/knowledge-base"]
     logging:
       driver: json-file
       options:

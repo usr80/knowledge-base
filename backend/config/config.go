@@ -15,6 +15,44 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	AI       AIConfig
+}
+
+type AIConfig struct {
+	// 默认 AI 提供商: tongyi / openai / deepseek / zhipu / ollama
+	DefaultProvider string
+
+	// 通义千问 API
+	DashScopeAPIKey string
+	ChatModel       string // 对话模型: qwen-turbo, qwen-plus, qwen-max
+
+	// OpenAI API
+	OpenAIAPIKey string
+	OpenAIModel  string
+	OpenAIBaseURL string // 自定义端点（可选）
+
+	// DeepSeek API
+	DeepSeekAPIKey string
+	DeepSeekModel  string
+
+	// 智谱 API
+	ZhipuAPIKey string
+	ZhipuModel  string
+
+	// Ollama 本地模型
+	OllamaBaseURL string
+	OllamaModel   string
+
+	// 通用配置
+	EmbeddingModel  string // 嵌入模型: text-embedding-v3
+	MaxTokens       int    // 最大输出 token
+	Temperature     float64 // 温度参数
+
+	// RAG 配置
+	ChunkSize    int     // 文档切片大小（字符）
+	ChunkOverlap int     // 切片重叠大小
+	TopK         int     // 检索返回文档数
+	MinScore     float64 // 最小相似度阈值
 }
 
 type ServerConfig struct {
@@ -72,6 +110,27 @@ func LoadConfig() *Config {
 			JWT: JWTConfig{
 				Secret:     getEnv("JWT_SECRET", "change-this-secret-key"),
 				ExpireHour: 24 * 7,
+			},
+			AI: AIConfig{
+				DefaultProvider:  getEnv("AI_DEFAULT_PROVIDER", "tongyi"),
+				DashScopeAPIKey: getEnv("DASHSCOPE_API_KEY", ""),
+				ChatModel:       getEnv("AI_CHAT_MODEL", "qwen-turbo"),
+				OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
+				OpenAIModel:    getEnv("OPENAI_MODEL", "gpt-4o-mini"),
+				OpenAIBaseURL:  getEnv("OPENAI_BASE_URL", ""),
+				DeepSeekAPIKey: getEnv("DEEPSEEK_API_KEY", ""),
+				DeepSeekModel:  getEnv("DEEPSEEK_MODEL", "deepseek-chat"),
+				ZhipuAPIKey:    getEnv("ZHIPU_API_KEY", ""),
+				ZhipuModel:     getEnv("ZHIPU_MODEL", "glm-4-flash"),
+				OllamaBaseURL:  getEnv("OLLAMA_BASE_URL", ""),
+				OllamaModel:    getEnv("OLLAMA_MODEL", "llama3"),
+				EmbeddingModel:  getEnv("AI_EMBEDDING_MODEL", "text-embedding-v3"),
+				MaxTokens:       2000,
+				Temperature:     0.7,
+				ChunkSize:       500,
+				ChunkOverlap:    50,
+				TopK:            5,
+				MinScore:        0.5,
 			},
 		}
 
@@ -147,7 +206,12 @@ func printConfig() {
 	fmt.Printf("数据库用户: %s\n", AppConfig.Database.User)
 	fmt.Printf("数据库名: %s\n", AppConfig.Database.DBName)
 	fmt.Printf("JWT密钥: %s***\n", maskSecret(AppConfig.JWT.Secret))
-	fmt.Println("==============================\n")
+	if AppConfig.AI.DashScopeAPIKey != "" {
+		fmt.Printf("AI API Key: %s***\n", maskSecret(AppConfig.AI.DashScopeAPIKey))
+	}
+	fmt.Printf("嵌入模型: %s\n", AppConfig.AI.EmbeddingModel)
+	fmt.Printf("对话模型: %s\n", AppConfig.AI.ChatModel)
+	fmt.Println("==============================")
 }
 
 // maskSecret 隐藏密钥中间部分

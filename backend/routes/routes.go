@@ -13,6 +13,7 @@ func SetupRoutes(r *gin.Engine) {
 	userController := controllers.NewUserController()
 	documentController := controllers.NewDocumentController()
 	categoryController := controllers.NewCategoryController()
+	chatController := controllers.NewChatController()
 
 	// 公开路由
 	public := r.Group("/api")
@@ -46,5 +47,19 @@ func SetupRoutes(r *gin.Engine) {
 		protected.GET("/categories/:id", categoryController.GetByID)
 		protected.PUT("/categories/:id", categoryController.Update)
 		protected.DELETE("/categories/:id", categoryController.Delete)
+
+		// AI 问答
+		protected.POST("/chat/ask", chatController.Ask)
+		protected.POST("/chat/ask/stream", chatController.AskStream)
+		protected.GET("/chat/sessions", chatController.ListSessions)
+		protected.GET("/chat/sessions/:id", chatController.GetSession)
+		protected.DELETE("/chat/sessions/:id", chatController.DeleteSession)
+
+		// 模型管理
+		protected.GET("/models", chatController.ListModels)
+		protected.POST("/models/select", chatController.SelectModel)
+
+		// 文档索引
+		protected.POST("/documents/:id/index", chatController.IndexDocument)
 	}
 }

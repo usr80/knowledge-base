@@ -31,7 +31,7 @@ type CreateDocumentRequest struct {
 }
 
 func (c *DocumentController) Create(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	var req CreateDocumentRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -52,7 +52,7 @@ func (c *DocumentController) Create(ctx *gin.Context) {
 }
 
 func (c *DocumentController) GetByID(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文档 ID"})
@@ -76,7 +76,7 @@ type ListDocumentsRequest struct {
 }
 
 func (c *DocumentController) List(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	var req ListDocumentsRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
@@ -109,7 +109,7 @@ type UpdateDocumentRequest struct {
 }
 
 func (c *DocumentController) Update(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文档 ID"})
@@ -131,7 +131,7 @@ func (c *DocumentController) Update(ctx *gin.Context) {
 }
 
 func (c *DocumentController) Delete(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文档 ID"})
@@ -148,7 +148,7 @@ func (c *DocumentController) Delete(ctx *gin.Context) {
 
 // Import 导入 Markdown 文档
 func (c *DocumentController) Import(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 
 	file, err := ctx.FormFile("file")
 	if err != nil {
@@ -195,7 +195,7 @@ func (c *DocumentController) Import(ctx *gin.Context) {
 
 // ExportMarkdown 导出为 Markdown 文件
 func (c *DocumentController) ExportMarkdown(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文档 ID"})

@@ -10,6 +10,16 @@
         <v-btn color="primary" prepend-icon="mdi-pencil" :to="`/document/edit/${route.params.id}`" rounded="lg" class="mr-2">
           编辑
         </v-btn>
+        <v-btn
+          color="success"
+          prepend-icon="mdi-robot"
+          rounded="lg"
+          class="mr-2"
+          :loading="indexing"
+          @click="handleCreateIndex"
+        >
+          创建索引
+        </v-btn>
         <v-menu>
           <template v-slot:activator="{ props }">
             <v-btn variant="outlined" prepend-icon="mdi-download" v-bind="props" rounded="lg">
@@ -67,9 +77,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getDocument, exportMarkdown } from '@/api'
 import { showSnackbar } from '@/api/request'
+import { documentAPI } from '@/api/chat'
 
 const route = useRoute()
 const loading = ref(false)
+const indexing = ref(false)
 const currentDoc = ref({})
 
 const renderedContent = computed(() => {
@@ -136,6 +148,19 @@ const handleExportPDF = async () => {
     showSnackbar('导出成功')
   } catch (error) {
     showSnackbar('导出失败，请重试', 'error')
+  }
+}
+
+// 创建文档索引
+const handleCreateIndex = async () => {
+  indexing.value = true
+  try {
+    await documentAPI.createIndex(route.params.id)
+    showSnackbar('索引创建成功，现在可以在 AI 对话中使用此文档')
+  } catch (error) {
+    showSnackbar('索引创建失败：' + (error.response?.data?.error || '未知错误'), 'error')
+  } finally {
+    indexing.value = false
   }
 }
 

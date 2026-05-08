@@ -30,7 +30,11 @@
 - [x] Material Design UI
 
 ### 第二阶段（进行中）
-- [ ] AI 智能问答（RAG 架构）
+- [x] AI 智能问答（RAG 架构）
+  - 文档向量嵌入（通义千问 Embedding）
+  - 语义检索（余弦相似度）
+  - 多模型支持：通义千问 / OpenAI / DeepSeek / 智谱 / Ollama
+  - AI 对话界面（支持模型切换）
 - [x] 文档导入/导出（Markdown/PDF）
 - [ ] 全文搜索引擎（Elasticsearch）
 - [ ] 文档版本历史
@@ -163,6 +167,17 @@ knowledge-base/
 │   ├── models/          # 数据模型
 │   ├── controllers/     # 控制器
 │   ├── services/        # 业务逻辑
+│   │   ├── llm/         # LLM Provider 架构
+│   │   │   ├── provider.go  # 接口定义
+│   │   │   ├── tongyi.go    # 通义千问
+│   │   │   ├── openai.go    # OpenAI
+│   │   │   ├── deepseek.go  # DeepSeek
+│   │   │   ├── zhipu.go     # 智谱
+│   │   │   ├── ollama.go    # Ollama
+│   │   │   └── manager.go   # 全局管理器
+│   │   ├── llm_service.go   # LLM 服务
+│   │   ├── embedding.go     # 嵌入服务
+│   │   └── rag.go           # RAG 服务
 │   ├── middleware/      # 中间件
 │   ├── routes/          # 路由
 │   ├── .env.example     # 配置模板
@@ -226,6 +241,22 @@ knowledge-base/
 | PUT | /api/categories/:id | 更新分类 |
 | DELETE | /api/categories/:id | 删除分类 |
 
+### AI 对话
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/chat/ask | AI 问答（非流式）|
+| POST | /api/chat/ask/stream | AI 问答（流式 SSE）|
+| GET | /api/chat/sessions | 会话列表 |
+| GET | /api/chat/sessions/:id | 会话详情 |
+| DELETE | /api/chat/sessions/:id | 删除会话 |
+| POST | /api/documents/:id/index | 创建文档索引 |
+
+### 模型管理
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/models | 获取可用模型列表 |
+| POST | /api/models/select | 切换当前模型 |
+
 ## 数据库配置
 
 | 配置项 | 环境变量 | 默认值 |
@@ -242,6 +273,45 @@ knowledge-base/
 - `tags` - 标签表
 - `documents` - 文档表
 - `document_tags` - 文档标签关联表
+- `document_chunks` - 文档切片向量表
+- `chat_sessions` - 对话会话表
+- `chat_messages` - 对话消息表
+
+## AI 配置
+
+支持多种 LLM 提供商，通过环境变量配置：
+
+| 提供商 | 环境变量 | 模型示例 |
+|--------|----------|----------|
+| 通义千问 | `DASHSCOPE_API_KEY` | qwen-turbo, qwen-plus, qwen-max |
+| OpenAI | `OPENAI_API_KEY` | gpt-4o, gpt-4o-mini |
+| DeepSeek | `DEEPSEEK_API_KEY` | deepseek-chat |
+| 智谱 | `ZHIPU_API_KEY` | glm-4-flash, glm-4-plus |
+| Ollama | `OLLAMA_BASE_URL` | llama3, qwen2.5 |
+
+配置示例：
+```env
+# 默认提供商
+AI_DEFAULT_PROVIDER=tongyi
+
+# 通义千问
+DASHSCOPE_API_KEY=sk-xxx
+AI_CHAT_MODEL=qwen-turbo
+
+# OpenAI
+OPENAI_API_KEY=sk-xxx
+OPENAI_MODEL=gpt-4o-mini
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-xxx
+
+# 智谱
+ZHIPU_API_KEY=xxx
+
+# Ollama 本地模型
+OLLAMA_BASE_URL=http://localhost:11434/api/chat
+OLLAMA_MODEL=llama3
+```
 
 ## 开发者
 

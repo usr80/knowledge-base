@@ -43,6 +43,13 @@
           :active="activeMenu === 'categories'"
         />
         <v-list-item
+          prepend-icon="mdi-robot-happy"
+          title="AI 对话"
+          value="chat"
+          to="/chat"
+          :active="activeMenu === 'chat'"
+        />
+        <v-list-item
           prepend-icon="mdi-account-circle"
           title="个人中心"
           value="profile"
@@ -127,6 +134,7 @@ const rail = ref(false)
 const activeMenu = computed(() => {
   const path = route.path
   if (path.startsWith('/categories')) return 'categories'
+  if (path.startsWith('/chat')) return 'chat'
   if (path.startsWith('/profile')) return 'profile'
   return 'documents'
 })

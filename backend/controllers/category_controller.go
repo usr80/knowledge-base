@@ -26,7 +26,7 @@ type CreateCategoryRequest struct {
 }
 
 func (c *CategoryController) Create(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	var req CreateCategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -47,7 +47,7 @@ func (c *CategoryController) Create(ctx *gin.Context) {
 }
 
 func (c *CategoryController) List(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	categories, err := c.catService.List(userID.(uint))
 	if err != nil {
@@ -59,7 +59,7 @@ func (c *CategoryController) List(ctx *gin.Context) {
 }
 
 func (c *CategoryController) GetByID(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的分类 ID"})
@@ -81,7 +81,7 @@ type UpdateCategoryRequest struct {
 }
 
 func (c *CategoryController) Update(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的分类 ID"})
@@ -103,7 +103,7 @@ func (c *CategoryController) Update(ctx *gin.Context) {
 }
 
 func (c *CategoryController) Delete(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的分类 ID"})

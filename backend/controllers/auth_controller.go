@@ -89,7 +89,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 }
 
 func (c *AuthController) GetProfile(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	user, err := c.userService.GetUserByID(userID.(uint))
 	if err != nil {
@@ -126,7 +126,7 @@ type UpdateProfileRequest struct {
 }
 
 func (c *UserController) UpdateProfile(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	var req UpdateProfileRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -148,7 +148,7 @@ type ChangePasswordRequest struct {
 }
 
 func (c *UserController) ChangePassword(ctx *gin.Context) {
-	userID, _ := ctx.Get("userID")
+	userID, _ := ctx.Get("user_id")
 	
 	var req ChangePasswordRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

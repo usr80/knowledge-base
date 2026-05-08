@@ -45,6 +45,9 @@ func InitDB(cfg *DatabaseConfig) error {
 		&models.Tag{},
 		&models.Document{},
 		&models.DocumentTag{},
+		&models.DocumentChunk{},
+		&models.ChatMessage{},
+		&models.ChatSession{},
 	)
 	if err != nil {
 		log.Printf("表结构迁移失败: %v", err)

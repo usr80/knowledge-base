@@ -9,19 +9,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "axios": "^1.6.5",
+    "html2pdf.js": "^0.10.2",
+    "marked": "^12.0.2",
+    "pinia": "^2.1.7",
     "vue": "^3.4.0",
     "vue-router": "^4.2.5",
-    "pinia": "^2.1.7",
-    "axios": "^1.6.5",
     "vuetify": "^3.5.0",
-    "@mdi/font": "^7.4.47",
-    "webfontloader": "^1.6.28",
-    "html2pdf.js": "^0.10.2"
+    "webfontloader": "^1.6.28"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.3",
+    "sass": "^1.70.0",
     "vite": "^5.0.12",
-    "vite-plugin-vuetify": "^2.0.1",
-    "sass": "^1.70.0"
+    "vite-plugin-vuetify": "^2.0.1"
   }
 }

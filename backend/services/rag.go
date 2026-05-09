@@ -17,6 +17,7 @@ type RAGService struct {
 	db              *gorm.DB
 	embeddingSvc    *EmbeddingService
 	llmSvc          *LLMService
+	usageSvc        *UsageService
 }
 
 func NewRAGService() *RAGService {
@@ -24,6 +25,7 @@ func NewRAGService() *RAGService {
 		db:           config.DB,
 		embeddingSvc: NewEmbeddingService(),
 		llmSvc:       NewLLMService(),
+		usageSvc:     NewUsageService(),
 	}
 }
 
@@ -132,8 +134,8 @@ func (s *RAGService) SearchSimilarChunks(query string, userID uint, docIDs []uin
 	return results, nil
 }
 
-// Ask 基于文档回答问题
-func (s *RAGService) Ask(userID uint, question string, docIDs []uint) (string, error) {
+// Ask 基于文档回答问题（支持记录 token 使用量）
+func (s *RAGService) Ask(userID uint, question string, docIDs []uint, sessionID string) (string, error) {
 	// 检索相关文档
 	results, err := s.SearchSimilarChunks(question, userID, docIDs, 0)
 	if err != nil {
@@ -174,11 +176,17 @@ func (s *RAGService) Ask(userID uint, question string, docIDs []uint) (string, e
 		}
 	}
 
-	// 调用 LLM 生成回答
-	answer, err := s.llmSvc.Chat(systemPrompt, messages)
+	// 调用 LLM 生成回答（带 token 使用量）
+	resp, err := s.llmSvc.ChatWithUsage(systemPrompt, messages)
 	if err != nil {
 		return "", fmt.Errorf("生成回答失败: %w", err)
 	}
+
+	// 记录 token 使用量
+	provider := s.llmSvc.CurrentProvider()
+	model := s.llmSvc.CurrentModel()
+	cost := CalculateCost(provider, model, resp.InputTokens, resp.OutputTokens)
+	go s.usageSvc.LogUsage(userID, provider, model, "chat", resp.InputTokens, resp.OutputTokens, cost, sessionID, 0)
 
 	// 添加引用来源（仅有检索结果时）
 	if len(results) > 0 {
@@ -210,14 +218,14 @@ func (s *RAGService) Ask(userID uint, question string, docIDs []uint) (string, e
 				seen[r.DocumentID] = true
 			}
 		}
-		return answer + refBuilder.String(), nil
+		return resp.Content + refBuilder.String(), nil
 	}
 
-	return answer, nil
+	return resp.Content, nil
 }
 
-// AskStream 流式回答问题
-func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, callback func(string)) error {
+// AskStream 流式回答问题（记录 token 使用量）
+func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, sessionID string, callback func(string)) error {
 	// 检索相关文档
 	results, err := s.SearchSimilarChunks(question, userID, docIDs, 0)
 	if err != nil {
@@ -257,7 +265,21 @@ func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, call
 		}
 	}
 
-	return s.llmSvc.ChatStream(systemPrompt, messages, callback)
+	// 调用 LLM 流式生成回答（返回 token 使用量）
+	resp, err := s.llmSvc.ChatStream(systemPrompt, messages, callback)
+	if err != nil {
+		return fmt.Errorf("生成回答失败: %w", err)
+	}
+
+	// 记录 token 使用量
+	if resp.InputTokens > 0 || resp.OutputTokens > 0 {
+		provider := s.llmSvc.CurrentProvider()
+		model := s.llmSvc.CurrentModel()
+		cost := CalculateCost(provider, model, resp.InputTokens, resp.OutputTokens)
+		go s.usageSvc.LogUsage(userID, provider, model, "chat_stream", resp.InputTokens, resp.OutputTokens, cost, sessionID, 0)
+	}
+
+	return nil
 }
 
 // SearchResult 搜索结果

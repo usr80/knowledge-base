@@ -55,6 +55,10 @@ func SetupRoutes(r *gin.Engine) {
 		protected.GET("/chat/sessions/:id", chatController.GetSession)
 		protected.DELETE("/chat/sessions/:id", chatController.DeleteSession)
 
+		// 用量统计
+		protected.GET("/chat/usage/stats", chatController.GetUsageStats)
+		protected.GET("/chat/usage/logs", chatController.GetUsageLogs)
+
 		// 模型管理
 		protected.GET("/models", chatController.ListModels)
 		protected.POST("/models/select", chatController.SelectModel)

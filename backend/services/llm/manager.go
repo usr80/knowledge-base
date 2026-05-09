@@ -109,11 +109,20 @@ func (m *Manager) Chat(systemPrompt string, messages []Message) (string, error) 
 	return provider.Chat(systemPrompt, messages)
 }
 
-// ChatStream 使用当前提供商进行流式对话
-func (m *Manager) ChatStream(systemPrompt string, messages []Message, callback func(string)) error {
+// ChatWithUsage 使用当前提供商进行对话（带 token 使用量）
+func (m *Manager) ChatWithUsage(systemPrompt string, messages []Message) (*ChatResponse, error) {
 	provider, err := m.Get("")
 	if err != nil {
-		return err
+		return nil, err
+	}
+	return provider.ChatWithUsage(systemPrompt, messages)
+}
+
+// ChatStream 使用当前提供商进行流式对话（返回 token 使用量）
+func (m *Manager) ChatStream(systemPrompt string, messages []Message, callback func(string)) (*ChatResponse, error) {
+	provider, err := m.Get("")
+	if err != nil {
+		return nil, err
 	}
 	return provider.ChatStream(systemPrompt, messages, callback)
 }

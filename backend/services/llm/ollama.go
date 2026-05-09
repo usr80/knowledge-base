@@ -122,8 +122,66 @@ func (p *OllamaProvider) Chat(systemPrompt string, messages []Message) (string, 
 	return "", fmt.Errorf("未返回有效回答")
 }
 
-// ChatStream 流式对话
-func (p *OllamaProvider) ChatStream(systemPrompt string, messages []Message, callback func(string)) error {
+// ChatWithUsage 单轮对话（带 token 使用量）
+func (p *OllamaProvider) ChatWithUsage(systemPrompt string, messages []Message) (*ChatResponse, error) {
+	fullMessages := buildMessages(systemPrompt, messages)
+
+	reqBody := ollamaRequest{
+		Model:    p.config.Model,
+		Messages: fullMessages,
+		Stream:   false,
+		Options: map[string]interface{}{
+			"num_predict": p.config.MaxTokens,
+			"temperature": p.config.Temperature,
+		},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", p.config.BaseURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("请求 Ollama 失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	var result ollamaResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	if result.Error != "" {
+		return nil, fmt.Errorf("Ollama 错误: %s", result.Error)
+	}
+
+	if result.Message.Content == "" {
+		return nil, fmt.Errorf("未返回有效回答")
+	}
+
+	return &ChatResponse{
+		Content:      result.Message.Content,
+		InputTokens:  result.PromptEvalCount,  // Ollama 使用 prompt_eval_count
+		OutputTokens: result.EvalCount,         // Ollama 使用 eval_count
+	}, nil
+}
+
+// ChatStream 流式对话（返回 token 使用量）
+func (p *OllamaProvider) ChatStream(systemPrompt string, messages []Message, callback func(string)) (*ChatResponse, error) {
 	fullMessages := buildMessages(systemPrompt, messages)
 
 	reqBody := ollamaRequest{
@@ -138,12 +196,12 @@ func (p *OllamaProvider) ChatStream(systemPrompt string, messages []Message, cal
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return fmt.Errorf("序列化请求失败: %w", err)
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", p.config.BaseURL, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("创建请求失败: %w", err)
+		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -151,11 +209,13 @@ func (p *OllamaProvider) ChatStream(systemPrompt string, messages []Message, cal
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("请求 Ollama 失败: %w", err)
+		return nil, fmt.Errorf("请求 Ollama 失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Ollama 返回 JSON Lines 格式，每行一个 JSON 对象
+	var inputTokens, outputTokens int
+
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -169,17 +229,27 @@ func (p *OllamaProvider) ChatStream(systemPrompt string, messages []Message, cal
 		}
 
 		if result.Error != "" {
-			return fmt.Errorf("Ollama 错误: %s", result.Error)
+			return nil, fmt.Errorf("Ollama 错误: %s", result.Error)
 		}
 
 		if result.Message.Content != "" {
 			callback(result.Message.Content)
 		}
 
+		// 最后一条消息（done=true）包含 token 使用量
 		if result.Done {
+			inputTokens = result.PromptEvalCount
+			outputTokens = result.EvalCount
 			break
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return &ChatResponse{
+		InputTokens:  inputTokens,
+		OutputTokens: outputTokens,
+	}, nil
 }

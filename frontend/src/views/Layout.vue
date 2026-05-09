@@ -50,6 +50,13 @@
           :active="activeMenu === 'chat'"
         />
         <v-list-item
+          prepend-icon="mdi-chart-bar"
+          title="用量统计"
+          value="usage"
+          to="/usage"
+          :active="activeMenu === 'usage'"
+        />
+        <v-list-item
           prepend-icon="mdi-account-circle"
           title="个人中心"
           value="profile"
@@ -135,6 +142,7 @@ const activeMenu = computed(() => {
   const path = route.path
   if (path.startsWith('/categories')) return 'categories'
   if (path.startsWith('/chat')) return 'chat'
+  if (path.startsWith('/usage')) return 'usage'
   if (path.startsWith('/profile')) return 'profile'
   return 'documents'
 })

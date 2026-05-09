@@ -12,7 +12,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-echo [√] Go 已安装
+echo [OK] Go 已安装
 
 :: 检查 Node.js
 where node >nul 2>nul
@@ -21,7 +21,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-echo [√] Node.js 已安装
+echo [OK] Node.js 已安装
 
 echo.
 echo ========================================
@@ -30,7 +30,7 @@ echo ========================================
 cd /d "%~dp0backend"
 echo 正在安装 Go 依赖...
 go mod tidy
-echo 启动后端服务 (http://localhost:8080)...
+echo 启动后端服务 http://localhost:8080 ...
 start "知识库后端" go run main.go
 
 timeout /t 3 /nobreak >nul
@@ -41,10 +41,10 @@ echo   启动前端服务
 echo ========================================
 cd /d "%~dp0frontend"
 if not exist "node_modules" (
-    echo 正在安装前端依赖 (首次启动可能需要几分钟)...
+    echo 正在安装前端依赖，首次启动可能需要几分钟...
     call npm install
 )
-echo 启动前端服务 (http://localhost:3000)...
+echo 启动前端服务 http://localhost:3000 ...
 start "知识库前端" npm run dev
 
 echo.

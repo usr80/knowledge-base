@@ -84,7 +84,7 @@ func (c *ChatController) Ask(ctx *gin.Context) {
 	}
 
 	// 调用 RAG 服务
-	answer, err := c.ragSvc.Ask(userID, req.Question, req.DocumentIDs)
+	answer, err := c.ragSvc.Ask(userID, req.Question, req.DocumentIDs, sessionID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "回答生成失败: " + err.Error()})
 		return
@@ -155,7 +155,7 @@ func (c *ChatController) AskStream(ctx *gin.Context) {
 
 	var answerBuilder strings.Builder
 
-	err := c.ragSvc.AskStream(userID, req.Question, req.DocumentIDs, func(chunk string) {
+	err := c.ragSvc.AskStream(userID, req.Question, req.DocumentIDs, sessionID, func(chunk string) {
 		answerBuilder.WriteString(chunk)
 		// 发送 SSE 事件
 		ctx.SSEvent("message", gin.H{"content": chunk})
@@ -298,4 +298,40 @@ func (c *ChatController) SelectModel(ctx *gin.Context) {
 		"provider": req.Provider,
 		"model":    req.Model,
 	})
+}
+
+// GetUsageStats 获取用量统计
+func (c *ChatController) GetUsageStats(ctx *gin.Context) {
+	userID := ctx.GetUint("user_id")
+	startDate := ctx.Query("startDate")
+	endDate := ctx.Query("endDate")
+
+	usageSvc := services.NewUsageService()
+	stats, err := usageSvc.GetStats(userID, startDate, endDate)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取统计失败"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, stats)
+}
+
+// GetUsageLogs 获取最近使用记录
+func (c *ChatController) GetUsageLogs(ctx *gin.Context) {
+	userID := ctx.GetUint("user_id")
+	limit := 50
+	if l := ctx.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	usageSvc := services.NewUsageService()
+	logs, err := usageSvc.GetRecentLogs(userID, limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取记录失败"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"logs": logs})
 }

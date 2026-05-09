@@ -87,8 +87,17 @@ func (s *LLMService) Chat(systemPrompt string, messages []chatMessage) (string, 
 	return llm.GetManager().Chat(systemPrompt, converted)
 }
 
-// ChatStream 流式对话（使用全局当前提供商）
-func (s *LLMService) ChatStream(systemPrompt string, messages []chatMessage, callback func(string)) error {
+// ChatWithUsage 单轮对话（带 token 使用量）
+func (s *LLMService) ChatWithUsage(systemPrompt string, messages []chatMessage) (*llm.ChatResponse, error) {
+	converted := make([]llm.Message, len(messages))
+	for i, m := range messages {
+		converted[i] = llm.Message{Role: m.Role, Content: m.Content}
+	}
+	return llm.GetManager().ChatWithUsage(systemPrompt, converted)
+}
+
+// ChatStream 流式对话（使用全局当前提供商，返回 token 使用量）
+func (s *LLMService) ChatStream(systemPrompt string, messages []chatMessage, callback func(string)) (*llm.ChatResponse, error) {
 	converted := make([]llm.Message, len(messages))
 	for i, m := range messages {
 		converted[i] = llm.Message{Role: m.Role, Content: m.Content}

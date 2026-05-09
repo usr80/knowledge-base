@@ -299,7 +299,7 @@ const newSession = () => {
   messages.value = []
 }
 
-// 发送消息
+// 发送消息（流式输出）
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || loading.value) return
 
@@ -311,35 +311,48 @@ const sendMessage = async () => {
     role: 'user',
     content: question
   })
+
+  // 添加空的助手消息（用于流式填充）
+  const assistantMsgIndex = messages.value.length
+  messages.value.push({
+    role: 'assistant',
+    content: ''
+  })
   scrollToBottom()
 
   loading.value = true
+  let fullAnswer = ''
+
   try {
-    const res = await chatAPI.ask({
-      question,
-      sessionID: currentSessionID.value,
-      documentIDs: selectedDocuments.value.length > 0 ? selectedDocuments.value : null
-    })
-
-    // 更新会话 ID
-    if (!currentSessionID.value) {
-      currentSessionID.value = res.sessionID
-      loadSessions()
-    }
-
-    // 添加助手回复
-    messages.value.push({
-      role: 'assistant',
-      content: res.answer
-    })
-    scrollToBottom()
+    await chatAPI.askStream(
+      {
+        question,
+        sessionID: currentSessionID.value,
+        documentIDs: selectedDocuments.value.length > 0 ? selectedDocuments.value : null
+      },
+      // onMessage: 接收到流式内容
+      (chunk) => {
+        fullAnswer += chunk
+        messages.value[assistantMsgIndex].content = fullAnswer
+        scrollToBottom()
+      },
+      // onDone: 流式结束
+      (sessionID) => {
+        loading.value = false
+        if (!currentSessionID.value && sessionID) {
+          currentSessionID.value = sessionID
+          loadSessions()
+        }
+      },
+      // onError: 错误处理
+      (err) => {
+        loading.value = false
+        messages.value[assistantMsgIndex].content = '抱歉，回答生成失败：' + (err.message || '网络错误')
+      }
+    )
   } catch (err) {
-    messages.value.push({
-      role: 'assistant',
-      content: '抱歉，回答生成失败：' + (err.message || '未知错误')
-    })
-  } finally {
     loading.value = false
+    messages.value[assistantMsgIndex].content = '抱歉，回答生成失败：' + (err.message || '未知错误')
   }
 }
 

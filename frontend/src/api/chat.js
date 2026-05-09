@@ -1,4 +1,5 @@
 import request from './request'
+import { useUserStore } from '@/stores/user'
 
 // 聊天相关 API
 export const chatAPI = {
@@ -9,20 +10,9 @@ export const chatAPI = {
 
   // 流式提问
   askStream(data, onMessage, onDone, onError) {
-    const userStore = require('@/stores/user').useUserStore()
+    const userStore = useUserStore()
     const baseURL = import.meta.env.DEV ? '/api' : './api'
 
-    const eventSource = new EventSource(
-      `${baseURL}/chat/ask/stream`,
-      {
-        headers: {
-          'Authorization': `Bearer ${userStore.token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
-
-    // 注意：EventSource 不支持 POST，这里用 fetch 替代
     fetch(`${baseURL}/chat/ask/stream`, {
       method: 'POST',
       headers: {
@@ -31,36 +21,48 @@ export const chatAPI = {
       },
       body: JSON.stringify(data)
     }).then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+      let sessionID = ''
+      let buffer = ''  // 缓冲区：处理不完整的 SSE 行
 
       const read = () => {
         reader.read().then(({ done, value }) => {
           if (done) {
-            onDone && onDone()
+            onDone && onDone(sessionID)
             return
           }
 
-          const text = decoder.decode(value)
-          const lines = text.split('\n')
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          // 最后一行可能不完整，保留在缓冲区
+          buffer = lines.pop() || ''
 
-          lines.forEach(line => {
-            if (line.startsWith('data:')) {
-              const data = line.slice(5).trim()
-              if (data && data !== '[DONE]') {
-                try {
-                  const parsed = JSON.parse(data)
-                  if (parsed.content) {
-                    onMessage && onMessage(parsed.content)
-                  }
-                } catch (e) {
-                  // 忽略解析错误
-                }
+          for (const line of lines) {
+            if (!line.startsWith('data:')) continue
+            const data = line.slice(5).trim()
+            if (!data) continue
+
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.content) {
+                onMessage && onMessage(parsed.content)
               }
+              if (parsed.sessionID) {
+                sessionID = parsed.sessionID
+              }
+            } catch (e) {
+              // 忽略解析错误
             }
-          })
+          }
 
           read()
+        }).catch(err => {
+          onError && onError(err)
         })
       }
 
@@ -98,6 +100,16 @@ export const chatAPI = {
   // 选择模型
   selectModel(data) {
     return request.post('/models/select', data)
+  },
+
+  // 获取用量统计
+  getUsageStats(params) {
+    return request.get('/chat/usage/stats', { params })
+  },
+
+  // 获取用量记录
+  getUsageLogs(params) {
+    return request.get('/chat/usage/logs', { params })
   }
 }
 

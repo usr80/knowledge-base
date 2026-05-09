@@ -10,8 +10,11 @@ type Provider interface {
 	// Chat 单轮对话（非流式）
 	Chat(systemPrompt string, messages []Message) (string, error)
 
-	// ChatStream 流式对话
-	ChatStream(systemPrompt string, messages []Message, callback func(string)) error
+	// ChatWithUsage 单轮对话（带 token 使用量）
+	ChatWithUsage(systemPrompt string, messages []Message) (*ChatResponse, error)
+
+	// ChatStream 流式对话（返回 token 使用量）
+	ChatStream(systemPrompt string, messages []Message, callback func(string)) (*ChatResponse, error)
 
 	// Models 返回支持的模型列表
 	Models() []string
@@ -24,6 +27,13 @@ type Provider interface {
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+// ChatResponse 对话响应（带 token 使用量）
+type ChatResponse struct {
+	Content      string `json:"content"`
+	InputTokens  int    `json:"inputTokens"`
+	OutputTokens int    `json:"outputTokens"`
 }
 
 // ProviderConfig 提供商配置

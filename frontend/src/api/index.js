@@ -65,3 +65,11 @@ export function updateCategory(id, data) {
 export function deleteCategory(id) {
   return request.delete(`/categories/${id}`)
 }
+
+export function searchDocuments(params) {
+  return request.get('/search', { params })
+}
+
+export function rebuildSearchIndex() {
+  return request.post('/search/rebuild')
+}

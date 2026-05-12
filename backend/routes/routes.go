@@ -14,6 +14,7 @@ func SetupRoutes(r *gin.Engine) {
 	documentController := controllers.NewDocumentController()
 	categoryController := controllers.NewCategoryController()
 	chatController := controllers.NewChatController()
+	searchController := controllers.NewSearchController()
 
 	// 公开路由
 	public := r.Group("/api")
@@ -65,5 +66,9 @@ func SetupRoutes(r *gin.Engine) {
 
 		// 文档索引
 		protected.POST("/documents/:id/index", chatController.IndexDocument)
+
+		// 搜索
+		protected.GET("/search", searchController.Search)
+		protected.POST("/search/rebuild", searchController.RebuildIndex)
 	}
 }

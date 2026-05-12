@@ -14,10 +14,11 @@ import (
 
 // RAGService RAG 检索增强生成服务
 type RAGService struct {
-	db              *gorm.DB
-	embeddingSvc    *EmbeddingService
-	llmSvc          *LLMService
-	usageSvc        *UsageService
+	db           *gorm.DB
+	embeddingSvc *EmbeddingService
+	llmSvc       *LLMService
+	usageSvc     *UsageService
+	searchSvc    *SearchService
 }
 
 func NewRAGService() *RAGService {
@@ -26,6 +27,7 @@ func NewRAGService() *RAGService {
 		embeddingSvc: NewEmbeddingService(),
 		llmSvc:       NewLLMService(),
 		usageSvc:     NewUsageService(),
+		searchSvc:    GetSearchService(),
 	}
 }
 
@@ -39,7 +41,7 @@ func (s *RAGService) IndexDocument(documentID, userID uint) error {
 		return fmt.Errorf("文档不存在: %w", err)
 	}
 
-	// 删除旧的切片
+	// 删除旧的切片（MySQL 中的记录仍保留，用于备份；Meilisearch 中的索引由 IndexChunks 自动清理）
 	if err := s.db.Where("document_id = ?", documentID).Delete(&models.DocumentChunk{}).Error; err != nil {
 		return fmt.Errorf("删除旧切片失败: %w", err)
 	}
@@ -56,7 +58,7 @@ func (s *RAGService) IndexDocument(documentID, userID uint) error {
 		return fmt.Errorf("获取嵌入向量失败: %w", err)
 	}
 
-	// 保存切片和向量
+	// 保存切片到 MySQL（保留作为备份，不再存储 embedding 字段）
 	for i, chunk := range chunks {
 		docChunk := models.DocumentChunk{
 			DocumentID: documentID,
@@ -64,20 +66,25 @@ func (s *RAGService) IndexDocument(documentID, userID uint) error {
 			ChunkIndex: i,
 			Content:    chunk,
 		}
+		// 仍然保存 embedding 到 MySQL 作为备份
 		if err := docChunk.SetEmbedding(embeddings[i]); err != nil {
 			log.Printf("保存切片 %d 向量失败: %v", i, err)
-			continue
 		}
 		if err := s.db.Create(&docChunk).Error; err != nil {
 			log.Printf("保存切片 %d 失败: %v", i, err)
 		}
 	}
 
+	// 索引到 Meilisearch（向量检索用）
+	if err := s.searchSvc.IndexChunks(documentID, userID, chunks, embeddings); err != nil {
+		log.Printf("警告: Meilisearch 切片索引失败: %v（MySQL 备份已保存）", err)
+	}
+
 	log.Printf("文档 %d 索引创建完成: %d 个切片", documentID, len(chunks))
 	return nil
 }
 
-// SearchSimilarChunks 检索相似文档切片
+// SearchSimilarChunks 检索相似文档切片（优先使用 Meilisearch 向量搜索）
 func (s *RAGService) SearchSimilarChunks(query string, userID uint, docIDs []uint, topK int) ([]SearchResult, error) {
 	if topK <= 0 {
 		topK = config.LoadConfig().AI.TopK
@@ -89,6 +96,36 @@ func (s *RAGService) SearchSimilarChunks(query string, userID uint, docIDs []uin
 		return nil, fmt.Errorf("获取查询向量失败: %w", err)
 	}
 
+	// 优先使用 Meilisearch 向量搜索
+	chunkResults, err := s.searchSvc.VectorSearch(queryVec, userID, docIDs, topK)
+	if err == nil && len(chunkResults) > 0 {
+		// 转换为 SearchResult
+		results := make([]SearchResult, 0, len(chunkResults))
+		for _, cr := range chunkResults {
+			// 过滤低分结果
+			cfg := config.LoadConfig()
+			if cr.Score < cfg.AI.MinScore {
+				continue
+			}
+			results = append(results, SearchResult{
+				ChunkID:    cr.ID,
+				DocumentID: cr.DocumentID,
+				Content:    cr.Content,
+				Score:      cr.Score,
+			})
+		}
+		return results, nil
+	}
+
+	// Meilisearch 搜索失败，降级到 MySQL 余弦相似度
+	if err != nil {
+		log.Printf("Meilisearch 向量搜索失败，降级到 MySQL: %v", err)
+	}
+	return s.searchSimilarChunksMySQL(queryVec, userID, docIDs, topK)
+}
+
+// searchSimilarChunksMySQL MySQL 降级：手动计算余弦相似度
+func (s *RAGService) searchSimilarChunksMySQL(queryVec []float64, userID uint, docIDs []uint, topK int) ([]SearchResult, error) {
 	// 获取用户的所有文档切片
 	dbQuery := s.db.Model(&models.DocumentChunk{}).Where("user_id = ?", userID)
 	if len(docIDs) > 0 {
@@ -290,7 +327,7 @@ type SearchResult struct {
 	Score      float64
 }
 
-// cosineSimilarity 余弦相似度
+// cosineSimilarity 余弦相似度（MySQL 降级时使用）
 func cosineSimilarity(a, b []float64) float64 {
 	if len(a) != len(b) {
 		return 0

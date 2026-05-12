@@ -119,7 +119,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getDocuments, getCategories, deleteDocument, importDocument } from '@/api'
+import { getDocuments, getCategories, deleteDocument, importDocument, searchDocuments } from '@/api'
 import { showSnackbar } from '@/api/request'
 
 const loading = ref(false)
@@ -152,13 +152,33 @@ const formatDate = (dateStr) => {
 const loadDocuments = async () => {
   loading.value = true
   try {
-    const res = await getDocuments({
-      page: page.value,
-      pageSize: pageSize.value,
-      categoryID: categoryID.value || undefined,
-      keyword: keyword.value || undefined
-    })
-    documents.value = res.data.list || []
+    // 有关键词时使用 Meilisearch 全文搜索（支持中文分词）
+    // 无关键词时使用原有的文档列表接口
+    const hasKeyword = keyword.value && keyword.value.trim() !== ''
+    let res
+    if (hasKeyword) {
+      res = await searchDocuments({
+        keyword: keyword.value.trim(),
+        page: page.value,
+        pageSize: pageSize.value,
+        categoryID: categoryID.value || undefined
+      })
+      // Meilisearch 返回扁平结构，需适配表格期望的嵌套结构
+      const list = (res.data.list || []).map(doc => ({
+        ...doc,
+        category: doc.category_name ? { name: doc.category_name } : null,
+        tags: (doc.tags || []).map(name => ({ name })),
+        viewCount: 0
+      }))
+      documents.value = list
+    } else {
+      res = await getDocuments({
+        page: page.value,
+        pageSize: pageSize.value,
+        categoryID: categoryID.value || undefined
+      })
+      documents.value = res.data.list || []
+    }
     total.value = res.data.total || 0
   } finally {
     loading.value = false

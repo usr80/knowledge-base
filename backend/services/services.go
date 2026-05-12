@@ -155,6 +155,16 @@ func (s *DocumentService) Create(userID uint, title, content, summary string, ca
 		}
 	}
 
+	// 同步到搜索索引
+	go func() {
+		searchSvc := GetSearchService()
+		// 重新加载关联数据
+		var fullDoc models.Document
+		if err := config.DB.Preload("Category").Preload("Tags").First(&fullDoc, doc.ID).Error; err == nil {
+			searchSvc.IndexDocument(&fullDoc)
+		}
+	}()
+
 	return doc, nil
 }
 
@@ -234,11 +244,30 @@ func (s *DocumentService) Update(userID uint, id uint, title, content, summary s
 		config.DB.Model(&models.Document{ID: id}).Association("Tags").Replace(tagList)
 	}
 
+	// 同步到搜索索引
+	go func() {
+		searchSvc := GetSearchService()
+		var fullDoc models.Document
+		if err := config.DB.Preload("Category").Preload("Tags").First(&fullDoc, id).Error; err == nil {
+			searchSvc.IndexDocument(&fullDoc)
+		}
+	}()
+
 	return nil
 }
 
 func (s *DocumentService) Delete(userID, id uint) error {
-	return config.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Document{}).Error
+	if err := config.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Document{}).Error; err != nil {
+		return err
+	}
+
+	// 从搜索索引删除
+	go func() {
+		searchSvc := GetSearchService()
+		searchSvc.DeleteDocument(id)
+	}()
+
+	return nil
 }
 
 type CategoryService struct{}

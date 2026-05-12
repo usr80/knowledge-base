@@ -16,6 +16,13 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	AI       AIConfig
+	Search   SearchConfig
+}
+
+type SearchConfig struct {
+	Host   string // Meilisearch 服务地址
+	APIKey string // API Key（可选）
+	Index  string // 索引名称
 }
 
 type AIConfig struct {
@@ -49,10 +56,11 @@ type AIConfig struct {
 	Temperature     float64 // 温度参数
 
 	// RAG 配置
-	ChunkSize    int     // 文档切片大小（字符）
-	ChunkOverlap int     // 切片重叠大小
-	TopK         int     // 检索返回文档数
-	MinScore     float64 // 最小相似度阈值
+	ChunkSize           int     // 文档切片大小（字符）
+	ChunkOverlap        int     // 切片重叠大小
+	TopK                int     // 检索返回文档数
+	MinScore            float64 // 最小相似度阈值
+	EmbeddingDimensions int     // 嵌入向量维度（text-embedding-v3 = 1024）
 }
 
 type ServerConfig struct {
@@ -127,10 +135,16 @@ func LoadConfig() *Config {
 				EmbeddingModel:  getEnv("AI_EMBEDDING_MODEL", "text-embedding-v3"),
 				MaxTokens:       2000,
 				Temperature:     0.7,
-				ChunkSize:       500,
-				ChunkOverlap:    50,
-				TopK:            5,
-				MinScore:        0.5,
+				ChunkSize:           500,
+				ChunkOverlap:        50,
+				TopK:                5,
+				MinScore:            0.5,
+				EmbeddingDimensions: 1024,
+			},
+			Search: SearchConfig{
+				Host:   getEnv("MEILISEARCH_HOST", "http://localhost:7700"),
+				APIKey: getEnv("MEILISEARCH_API_KEY", ""),
+				Index:  getEnv("MEILISEARCH_INDEX", "documents"),
 			},
 		}
 

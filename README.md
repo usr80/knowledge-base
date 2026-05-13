@@ -10,6 +10,7 @@
 - **ORM**: GORM
 - **数据库**: MySQL 5.7+
 - **认证**: JWT
+- **搜索**: Meilisearch（全文搜索 + 向量搜索）
 
 ### 前端
 - **框架**: Vue 3 + Vite
@@ -36,7 +37,7 @@
   - 多模型支持：通义千问 / OpenAI / DeepSeek / 智谱 / Ollama
   - AI 对话界面（支持模型切换）
 - [x] 文档导入/导出（Markdown/PDF）
-- [ ] 全文搜索引擎（Elasticsearch）
+- [x] 全文搜索引擎（Meilisearch，含向量检索）
 - [ ] 文档版本历史
 - [ ] 协作分享功能
 

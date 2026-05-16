@@ -419,7 +419,8 @@ func (s *SearchService) VectorSearch(queryVec []float64, userID uint, docIDs []u
 			SemanticRatio: 1.0, // 纯向量搜索
 			Embedder:      "manual",
 		},
-		RetrieveVectors: false,
+		RetrieveVectors:  false,
+		ShowRankingScore: true, // 必须！否则 _rankingScore 不会返回
 	}
 
 	// 执行搜索
@@ -502,7 +503,8 @@ func (s *SearchService) HybridSearch(query string, queryVec []float64, userID ui
 			SemanticRatio: semanticRatio,
 			Embedder:      "manual",
 		},
-		RetrieveVectors: false,
+		RetrieveVectors:  false,
+		ShowRankingScore: true, // 必须！否则 _rankingScore 不会返回
 	}
 
 	resp, err := index.SearchWithContext(context.Background(), query, searchParams)

@@ -116,6 +116,26 @@
                   <div v-html="renderMarkdown(msg.content)"></div>
                 </v-card-text>
               </v-card>
+              <!-- 引用来源（只显示在最后一条助手消息下方） -->
+              <div
+                v-if="msg.role === 'assistant' && index === messages.length - 1 && currentReferences.length > 0 && !loading"
+                class="references-area mt-1"
+              >
+                <div class="text-caption text-medium-emphasis mb-1">
+                  <v-icon size="14" class="mr-1">mdi-bookmark</v-icon>引用来源
+                </div>
+                <v-chip
+                  v-for="ref in currentReferences"
+                  :key="ref.documentID"
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  class="mr-1 mb-1"
+                >
+                  {{ ref.title }}
+                  <span class="text-medium-emphasis ml-1">{{ (ref.score * 100).toFixed(0) }}%</span>
+                </v-chip>
+              </div>
             </div>
 
             <!-- 加载中 -->
@@ -226,6 +246,7 @@ const messageList = ref(null)
 const showDocSelect = ref(false)
 const allDocuments = ref([])
 const selectedDocuments = ref([])
+const currentReferences = ref([])
 
 // 模型选择
 const modelProviders = ref([])
@@ -322,6 +343,7 @@ const sendMessage = async () => {
 
   loading.value = true
   let fullAnswer = ''
+  currentReferences.value = [] // 清空上次引用
 
   try {
     await chatAPI.askStream(
@@ -348,6 +370,10 @@ const sendMessage = async () => {
       (err) => {
         loading.value = false
         messages.value[assistantMsgIndex].content = '抱歉，回答生成失败：' + (err.message || '网络错误')
+      },
+      // onReferences: 接收引用来源
+      (refs) => {
+        currentReferences.value = refs
       }
     )
   } catch (err) {
@@ -485,5 +511,21 @@ onMounted(() => {
   .max-w-50 {
     max-width: 90%;
   }
+}
+.references-area {
+  max-width: 80%;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.message-item.user .references-area {
+  margin-left: 0;
+  margin-right: auto;
+  padding-left: 0;
+}
+
+.message-item.assistant .references-area {
+  margin-left: 0;
+  margin-right: auto;
 }
 </style>

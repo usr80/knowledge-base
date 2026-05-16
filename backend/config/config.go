@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -138,7 +139,7 @@ func LoadConfig() *Config {
 				ChunkSize:           500,
 				ChunkOverlap:        50,
 				TopK:                5,
-				MinScore:            0.5,
+				MinScore:            getEnvFloat("AI_MIN_SCORE", 0.3),
 				EmbeddingDimensions: 1024,
 			},
 			Search: SearchConfig{
@@ -202,6 +203,15 @@ func (c *DatabaseConfig) DSN() string {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if f, err := strconv.ParseFloat(value, 64); err == nil {
+			return f
+		}
 	}
 	return defaultValue
 }

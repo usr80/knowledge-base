@@ -28,14 +28,15 @@ func NewChatController() *ChatController {
 // AskRequest 提问请求
 type AskRequest struct {
 	Question    string `json:"question" binding:"required"`
-	DocumentIDs []uint `json:"documentIDs"` // 可选：限定检索文档范围
-	SessionID   string `json:"sessionID"`   // 可选：会话 ID（用于多轮对话）
+	DocumentIDs []uint `json:"documentIDs"` // 可选:限定检索文档范围
+	SessionID   string `json:"sessionID"`   // 可选:会话 ID(用于多轮对话)
 }
 
 // AskResponse 提问响应
 type AskResponse struct {
-	SessionID string `json:"sessionID"`
-	Answer    string `json:"answer"`
+	SessionID  string                `json:"sessionID"`
+	Answer     string                `json:"answer"`
+	References []services.Reference  `json:"references,omitempty"`
 }
 
 // Ask 提问接口
@@ -155,9 +156,9 @@ func (c *ChatController) AskStream(ctx *gin.Context) {
 
 	var answerBuilder strings.Builder
 
-	err := c.ragSvc.AskStream(userID, req.Question, req.DocumentIDs, sessionID, func(chunk string) {
+	// 调用 RAG 流式服务（返回搜索结果）
+	searchResults, err := c.ragSvc.AskStream(userID, req.Question, req.DocumentIDs, sessionID, func(chunk string) {
 		answerBuilder.WriteString(chunk)
-		// 发送 SSE 事件
 		ctx.SSEvent("message", gin.H{"content": chunk})
 		ctx.Writer.Flush()
 	})
@@ -166,6 +167,47 @@ func (c *ChatController) AskStream(ctx *gin.Context) {
 		ctx.SSEvent("error", gin.H{"error": err.Error()})
 		ctx.Writer.Flush()
 		return
+	}
+
+	// 发送引用来源（如果命中了文档）
+	if len(searchResults) > 0 {
+		// 去重文档 ID
+		docIDsSet := make(map[uint]bool)
+		for _, r := range searchResults {
+			docIDsSet[r.DocumentID] = true
+		}
+		docIDList := make([]uint, 0, len(docIDsSet))
+		for id := range docIDsSet {
+			docIDList = append(docIDList, id)
+		}
+
+		// 查询文档标题
+		var docs []models.Document
+		config.DB.Where("id IN ?", docIDList).Find(&docs)
+		docMap := make(map[uint]models.Document)
+		for _, d := range docs {
+			docMap[d.ID] = d
+		}
+
+		// 构造引用列表
+		refs := make([]services.Reference, 0, len(docIDsSet))
+		seen := make(map[uint]bool)
+		for _, r := range searchResults {
+			if !seen[r.DocumentID] {
+				if doc, ok := docMap[r.DocumentID]; ok {
+					refs = append(refs, services.Reference{
+						DocumentID:   doc.ID,
+						DocumentName: doc.Title,
+						Score:        r.Score,
+					})
+				}
+				seen[r.DocumentID] = true
+			}
+		}
+
+		// 通过 SSE 发送引用信息
+		ctx.SSEvent("message", gin.H{"type": "references", "references": refs})
+		ctx.Writer.Flush()
 	}
 
 	// 保存完整回答
@@ -220,7 +262,7 @@ func (c *ChatController) ListSessions(ctx *gin.Context) {
 	})
 }
 
-// GetSession 获取会话详情（消息列表）
+// GetSession 获取会话详情(消息列表)
 func (c *ChatController) GetSession(ctx *gin.Context) {
 	userID := ctx.GetUint("user_id")
 	sessionID := ctx.Param("id")
@@ -248,7 +290,7 @@ func (c *ChatController) DeleteSession(ctx *gin.Context) {
 
 	// 删除消息
 	config.DB.Where("session_id = ? AND user_id IN (SELECT id FROM chat_sessions WHERE user_id = ?)", sessionID, userID).Delete(&models.ChatMessage{})
-	
+
 	// 删除会话
 	result := config.DB.Where("session_id = ? AND user_id = ?", sessionID, userID).Delete(&models.ChatSession{})
 	if result.Error != nil {
@@ -264,7 +306,7 @@ func (c *ChatController) ListModels(ctx *gin.Context) {
 	llmSvc := services.NewLLMService()
 	models := llmSvc.AllModels()
 	providers := llmSvc.ListProviders()
-	
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"providers":        providers,
 		"models":           models,

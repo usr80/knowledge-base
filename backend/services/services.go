@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"knowledge-base/config"
@@ -155,13 +156,21 @@ func (s *DocumentService) Create(userID uint, title, content, summary string, ca
 		}
 	}
 
-	// 同步到搜索索引
+	// 同步到搜索索引 + 自动创建 RAG 向量索引
 	go func() {
 		searchSvc := GetSearchService()
 		// 重新加载关联数据
 		var fullDoc models.Document
 		if err := config.DB.Preload("Category").Preload("Tags").First(&fullDoc, doc.ID).Error; err == nil {
 			searchSvc.IndexDocument(&fullDoc)
+		}
+
+		// 自动创建 RAG 向量索引
+		if content != "" {
+			ragSvc := NewRAGService()
+			if err := ragSvc.IndexDocument(doc.ID, userID); err != nil {
+				log.Printf("自动创建 RAG 索引失败 docID=%d: %v", doc.ID, err)
+			}
 		}
 	}()
 
@@ -244,12 +253,20 @@ func (s *DocumentService) Update(userID uint, id uint, title, content, summary s
 		config.DB.Model(&models.Document{ID: id}).Association("Tags").Replace(tagList)
 	}
 
-	// 同步到搜索索引
+	// 同步到搜索索引 + 自动更新 RAG 向量索引
 	go func() {
 		searchSvc := GetSearchService()
 		var fullDoc models.Document
 		if err := config.DB.Preload("Category").Preload("Tags").First(&fullDoc, id).Error; err == nil {
 			searchSvc.IndexDocument(&fullDoc)
+		}
+
+		// 内容变更时自动更新 RAG 向量索引
+		if _, ok := updates["content"]; ok {
+			ragSvc := NewRAGService()
+			if err := ragSvc.IndexDocument(id, userID); err != nil {
+				log.Printf("自动更新 RAG 索引失败 docID=%d: %v", id, err)
+			}
 		}
 	}()
 

@@ -9,7 +9,7 @@ export const chatAPI = {
   },
 
   // 流式提问
-  askStream(data, onMessage, onDone, onError) {
+  askStream(data, onMessage, onDone, onError, onReferences) {
     const userStore = useUserStore()
     const baseURL = import.meta.env.DEV ? '/api' : './api'
 
@@ -49,8 +49,12 @@ export const chatAPI = {
 
             try {
               const parsed = JSON.parse(data)
-              if (parsed.content) {
-                onMessage && onMessage(parsed.content)
+              if (parsed.type === 'references' && parsed.references) {
+                onReferences && onReferences(parsed.references)
+              } else {
+                if (parsed.content) {
+                  onMessage && onMessage(parsed.content)
+                }
               }
               if (parsed.sessionID) {
                 sessionID = parsed.sessionID

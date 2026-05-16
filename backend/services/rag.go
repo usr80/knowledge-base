@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"log"
-	"math"
 	"strings"
 
 	"knowledge-base/config"
@@ -41,7 +40,7 @@ func (s *RAGService) IndexDocument(documentID, userID uint) error {
 		return fmt.Errorf("文档不存在: %w", err)
 	}
 
-	// 删除旧的切片（MySQL 中的记录仍保留，用于备份；Meilisearch 中的索引由 IndexChunks 自动清理）
+	// 删除旧的切片
 	if err := s.db.Where("document_id = ?", documentID).Delete(&models.DocumentChunk{}).Error; err != nil {
 		return fmt.Errorf("删除旧切片失败: %w", err)
 	}
@@ -58,7 +57,7 @@ func (s *RAGService) IndexDocument(documentID, userID uint) error {
 		return fmt.Errorf("获取嵌入向量失败: %w", err)
 	}
 
-	// 保存切片到 MySQL（保留作为备份，不再存储 embedding 字段）
+	// 保存切片到 MySQL（仅内容，向量数据存 Meilisearch）
 	for i, chunk := range chunks {
 		docChunk := models.DocumentChunk{
 			DocumentID: documentID,
@@ -66,25 +65,21 @@ func (s *RAGService) IndexDocument(documentID, userID uint) error {
 			ChunkIndex: i,
 			Content:    chunk,
 		}
-		// 仍然保存 embedding 到 MySQL 作为备份
-		if err := docChunk.SetEmbedding(embeddings[i]); err != nil {
-			log.Printf("保存切片 %d 向量失败: %v", i, err)
-		}
 		if err := s.db.Create(&docChunk).Error; err != nil {
 			log.Printf("保存切片 %d 失败: %v", i, err)
 		}
 	}
 
-	// 索引到 Meilisearch（向量检索用）
+	// 索引到 Meilisearch（向量检索）
 	if err := s.searchSvc.IndexChunks(documentID, userID, chunks, embeddings); err != nil {
-		log.Printf("警告: Meilisearch 切片索引失败: %v（MySQL 备份已保存）", err)
+		return fmt.Errorf("Meilisearch 索引失败: %w", err)
 	}
 
 	log.Printf("文档 %d 索引创建完成: %d 个切片", documentID, len(chunks))
 	return nil
 }
 
-// SearchSimilarChunks 检索相似文档切片（优先使用 Meilisearch 向量搜索）
+// SearchSimilarChunks 检索相似文档切片（Meilisearch 向量搜索）
 func (s *RAGService) SearchSimilarChunks(query string, userID uint, docIDs []uint, topK int) ([]SearchResult, error) {
 	if topK <= 0 {
 		topK = config.LoadConfig().AI.TopK
@@ -96,76 +91,53 @@ func (s *RAGService) SearchSimilarChunks(query string, userID uint, docIDs []uin
 		return nil, fmt.Errorf("获取查询向量失败: %w", err)
 	}
 
-	// 优先使用 Meilisearch 向量搜索
+	// Meilisearch 向量搜索
 	chunkResults, err := s.searchSvc.VectorSearch(queryVec, userID, docIDs, topK)
-	if err == nil && len(chunkResults) > 0 {
-		// 转换为 SearchResult
-		results := make([]SearchResult, 0, len(chunkResults))
-		for _, cr := range chunkResults {
-			// 过滤低分结果
-			cfg := config.LoadConfig()
-			if cr.Score < cfg.AI.MinScore {
-				continue
-			}
-			results = append(results, SearchResult{
-				ChunkID:    cr.ID,
-				DocumentID: cr.DocumentID,
-				Content:    cr.Content,
-				Score:      cr.Score,
-			})
-		}
-		return results, nil
-	}
-
-	// Meilisearch 搜索失败，降级到 MySQL 余弦相似度
 	if err != nil {
-		log.Printf("Meilisearch 向量搜索失败，降级到 MySQL: %v", err)
-	}
-	return s.searchSimilarChunksMySQL(queryVec, userID, docIDs, topK)
-}
-
-// searchSimilarChunksMySQL MySQL 降级：手动计算余弦相似度
-func (s *RAGService) searchSimilarChunksMySQL(queryVec []float64, userID uint, docIDs []uint, topK int) ([]SearchResult, error) {
-	// 获取用户的所有文档切片
-	dbQuery := s.db.Model(&models.DocumentChunk{}).Where("user_id = ?", userID)
-	if len(docIDs) > 0 {
-		dbQuery = dbQuery.Where("document_id IN ?", docIDs)
+		return nil, fmt.Errorf("向量搜索失败: %w", err)
 	}
 
-	var chunks []models.DocumentChunk
-	if err := dbQuery.Find(&chunks).Error; err != nil {
-		return nil, fmt.Errorf("查询切片失败: %w", err)
-	}
-
-	if len(chunks) == 0 {
-		return nil, nil
-	}
-
-	// 计算相似度并排序
-	results := make([]SearchResult, 0)
-	for _, chunk := range chunks {
-		chunkVec, err := chunk.GetEmbedding()
-		if err != nil || len(chunkVec) == 0 {
+	// 转换为 SearchResult 并过滤低分
+	cfg := config.LoadConfig()
+	results := make([]SearchResult, 0, len(chunkResults))
+	for _, cr := range chunkResults {
+		if cr.Score < cfg.AI.MinScore {
 			continue
 		}
-
-		score := cosineSimilarity(queryVec, chunkVec)
-		if score < config.LoadConfig().AI.MinScore {
-			continue
-		}
-
 		results = append(results, SearchResult{
-			ChunkID:    chunk.ID,
-			DocumentID: chunk.DocumentID,
-			Content:    chunk.Content,
-			Score:      score,
+			ChunkID:    cr.ID,
+			DocumentID: cr.DocumentID,
+			Content:    cr.Content,
+			Score:      cr.Score,
 		})
 	}
 
-	// 按相似度降序排序，取 topK
-	sortResults(results)
-	if len(results) > topK {
-		results = results[:topK]
+	// 打印命中文档信息
+	if len(results) > 0 {
+		docIDsSet := make(map[uint]bool)
+		for _, r := range results {
+			docIDsSet[r.DocumentID] = true
+		}
+		docIDList := make([]uint, 0, len(docIDsSet))
+		for id := range docIDsSet {
+			docIDList = append(docIDList, id)
+		}
+
+		var docs []models.Document
+		s.db.Where("id IN ?", docIDList).Find(&docs)
+		docMap := make(map[uint]models.Document)
+		for _, d := range docs {
+			docMap[d.ID] = d
+		}
+
+		log.Printf("[RAG] 命中 %d 个切片，来自 %d 个文档:", len(results), len(docIDsSet))
+		for _, r := range results {
+			if doc, ok := docMap[r.DocumentID]; ok {
+				log.Printf("[RAG]   - 文档: %s (ID=%d), 切片#%d, 相似度=%.4f", doc.Title, r.DocumentID, r.ChunkID%1000, r.Score)
+			}
+		}
+	} else {
+		log.Printf("[RAG] 未命中任何文档（query=%q, minScore=%.2f）", query, cfg.AI.MinScore)
 	}
 
 	return results, nil
@@ -261,12 +233,12 @@ func (s *RAGService) Ask(userID uint, question string, docIDs []uint, sessionID 
 	return resp.Content, nil
 }
 
-// AskStream 流式回答问题（记录 token 使用量）
-func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, sessionID string, callback func(string)) error {
+// AskStream 流式回答问题（返回搜索结果供调用方构造引用）
+func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, sessionID string, callback func(string)) ([]SearchResult, error) {
 	// 检索相关文档
 	results, err := s.SearchSimilarChunks(question, userID, docIDs, 0)
 	if err != nil {
-		return fmt.Errorf("检索失败: %w", err)
+		return nil, fmt.Errorf("检索失败: %w", err)
 	}
 
 	systemPrompt := `你是一个智能助手，可以基于知识库内容和自身知识回答用户问题。
@@ -305,7 +277,7 @@ func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, sess
 	// 调用 LLM 流式生成回答（返回 token 使用量）
 	resp, err := s.llmSvc.ChatStream(systemPrompt, messages, callback)
 	if err != nil {
-		return fmt.Errorf("生成回答失败: %w", err)
+		return nil, fmt.Errorf("生成回答失败: %w", err)
 	}
 
 	// 记录 token 使用量
@@ -316,7 +288,8 @@ func (s *RAGService) AskStream(userID uint, question string, docIDs []uint, sess
 		go s.usageSvc.LogUsage(userID, provider, model, "chat_stream", resp.InputTokens, resp.OutputTokens, cost, sessionID, 0)
 	}
 
-	return nil
+	// 返回搜索结果，供调用方构造引用
+	return results, nil
 }
 
 // SearchResult 搜索结果
@@ -327,33 +300,11 @@ type SearchResult struct {
 	Score      float64
 }
 
-// cosineSimilarity 余弦相似度（MySQL 降级时使用）
-func cosineSimilarity(a, b []float64) float64 {
-	if len(a) != len(b) {
-		return 0
-	}
-
-	var dotProduct, normA, normB float64
-	for i := range a {
-		dotProduct += a[i] * b[i]
-		normA += a[i] * a[i]
-		normB += b[i] * b[i]
-	}
-
-	if normA == 0 || normB == 0 {
-		return 0
-	}
-
-	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
+// Reference 引用来源
+type Reference struct {
+	DocumentID   uint    `json:"documentId"`
+	DocumentName string  `json:"documentName"`
+	Score        float64 `json:"score"`
 }
 
-// sortResults 按相似度降序排序
-func sortResults(results []SearchResult) {
-	for i := 0; i < len(results)-1; i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].Score > results[i].Score {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
-}
+
